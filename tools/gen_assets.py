@@ -457,6 +457,13 @@ def main():
                 m = load_part(f, part)
                 write_obj(m, os.path.join(geo_dir, f, part + ".obj"))
                 fm[f][part] = m
+        # ship the ORIGINAL obj files untouched as well (assets/stalkerarmor/geo/original/)
+        orig_dir = os.path.join(ASSETS, "geo", "original")
+        clean_dir(orig_dir)
+        for f in families:
+            for part in fam_parts[f]:
+                shutil.copyfile(os.path.join(MODEL_DIR, f"arm_{f}_{part}.obj"),
+                                os.path.join(orig_dir, f"arm_{f}_{part}.obj"))
         # numeric sanity report (root space)
         print("\n=== geometry sanity (root-space MC units; vanilla body: head y[-8,0], body y[0,12], "
               "arms y[-2,10]@x[3,7], legs y[12,24], ground=24) ===")

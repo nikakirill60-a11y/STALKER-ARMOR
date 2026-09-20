@@ -89,5 +89,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload v1.0.0 dist/stalkerarmor-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY" || echo "release not available yet"
-          gh release view v1.0.0 --json assets --jq '.assets[].name' || true
+          gh release view v1.0.1 >/dev/null 2>&1 || gh release create v1.0.1 --title "STALKER Armor 1.0.1 — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "Update: original OBJ models now shipped inside the jar (assets/stalkerarmor/geo/original/) alongside the converted ones."
+          gh release upload v1.0.1 dist/stalkerarmor-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view v1.0.1 --json assets --jq '.assets[].name'

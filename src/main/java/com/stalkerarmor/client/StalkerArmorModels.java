@@ -1,5 +1,6 @@
 package com.stalkerarmor.client;
 
+import com.mojang.logging.LogUtils;
 import com.stalkerarmor.StalkerArmorMod;
 import com.stalkerarmor.StalkerArmorSet;
 import java.io.BufferedReader;
@@ -23,12 +24,15 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.entity.EquipmentSlot;
+import org.slf4j.Logger;
 
 /**
  * Loads the converted OBJ geometry (assets/stalkerarmor/geo/armor/&lt;family&gt;/&lt;part&gt;.obj)
  * and hands out cached {@link StalkerArmorModel} instances per set + slot.
  */
 public final class StalkerArmorModels {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     /** Flat triangle soup: corner-parallel arrays. Positions are pivot-relative MC model units. */
     public static final class Mesh {
@@ -95,6 +99,7 @@ public final class StalkerArmorModels {
                 "geo/armor/" + family + "/" + part + ".obj");
         Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(location);
         if (resource.isEmpty()) {
+            LOGGER.error("[STALKER Armor] Missing armor geometry: {} — the armor piece will be invisible!", location);
             return null;
         }
 
