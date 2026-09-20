@@ -82,3 +82,12 @@ jobs:
             git commit -m "CI: built mod jar [skip ci]"
             git push
           fi
+
+      - name: Attach jar to release (best effort)
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v1.0.0 dist/stalkerarmor-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY" || echo "release not available yet"
+          gh release view v1.0.0 --json assets --jq '.assets[].name' || true
