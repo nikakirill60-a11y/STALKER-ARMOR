@@ -446,24 +446,20 @@ def main():
     fam_parts = {f: family_parts(f) for f in families}
     print("families:", {f: p for f, p in fam_parts.items()})
 
-    # ---- 1. geometry conversion
-    geo_dir = os.path.join(ASSETS, "geo", "armor")
+    # ---- 1. ship the ORIGINAL obj files untouched (assets/stalkerarmor/geo/original/)
+    #         the mod loads and converts them at runtime; no pre-converted copies
     if only in ("all", "geo"):
-        clean_dir(geo_dir)
-        fm = {}
-        for f in families:
-            fm[f] = {}
-            for part in fam_parts[f]:
-                m = load_part(f, part)
-                write_obj(m, os.path.join(geo_dir, f, part + ".obj"))
-                fm[f][part] = m
-        # ship the ORIGINAL obj files untouched as well (assets/stalkerarmor/geo/original/)
         orig_dir = os.path.join(ASSETS, "geo", "original")
         clean_dir(orig_dir)
         for f in families:
             for part in fam_parts[f]:
                 shutil.copyfile(os.path.join(MODEL_DIR, f"arm_{f}_{part}.obj"),
                                 os.path.join(orig_dir, f"arm_{f}_{part}.obj"))
+        fm = {}
+        for f in families:
+            fm[f] = {}
+            for part in fam_parts[f]:
+                fm[f][part] = load_part(f, part)
         # numeric sanity report (root space)
         print("\n=== geometry sanity (root-space MC units; vanilla body: head y[-8,0], body y[0,12], "
               "arms y[-2,10]@x[3,7], legs y[12,24], ground=24) ===")

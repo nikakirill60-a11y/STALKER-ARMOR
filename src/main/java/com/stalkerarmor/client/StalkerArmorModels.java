@@ -27,8 +27,15 @@ import net.minecraft.world.entity.EquipmentSlot;
 import org.slf4j.Logger;
 
 /**
- * Loads the converted OBJ geometry (assets/stalkerarmor/geo/armor/&lt;family&gt;/&lt;part&gt;.obj)
- * and hands out cached {@link StalkerArmorModel} instances per set + slot.
+ * Loads the ORIGINAL OBJ files from "armor MODEL" (shipped as-is inside the jar at
+ * assets/stalkerarmor/geo/original/arm_&lt;family&gt;_&lt;part&gt;.obj) and converts them
+ * to Minecraft model space at runtime. No pre-converted copies: what you put in
+ * "armor MODEL" is exactly what the mod renders.
+ *
+ * Conversion (Blender rig space -> MC model space, 1 rig unit = 4 MC units = 1/4 block):
+ *   mc = (4*x + T.x, -4*y + T.y, -4*z + T.z), then a small per-axis "inflate" about the
+ *   mesh bounding box center lifts the armor off the skin to avoid z-fighting.
+ *   Normals: (nx, -ny, -nz), renormalized. UVs are used as authored (v flipped at draw).
  */
 public final class StalkerArmorModels {
 
@@ -54,6 +61,17 @@ public final class StalkerArmorModels {
     /** Geometry of one model family; null part = the family has no such piece. */
     public record FamilyMeshes(Mesh head, Mesh chest, Mesh arm, Mesh leg, Mesh boot) {
     }
+
+    /** Per-body-part placement (pivot-relative MC units) and inflate amount. */
+    private record PartTransform(float tx, float ty, float tz, float inflate) {
+    }
+
+    private static final Map<String, PartTransform> PART_TRANSFORMS = Map.of(
+            "head", new PartTransform(0.0F, -4.0F, 0.0F, 0.75F),
+            "chest", new PartTransform(0.0F, 4.6F, 0.0F, 0.35F),
+            "arm", new PartTransform(0.0F, 4.0F, 0.0F, 0.30F),
+            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F),
+            "boot", new PartTransform(0.0F, 9.1F, -1.5F, 0.35F));
 
     private static final Map<String, FamilyMeshes> FAMILIES = new HashMap<>();
     private static final Map<String, HumanoidModel<?>> MODELS = new HashMap<>();
@@ -95,18 +113,20 @@ public final class StalkerArmorModels {
     }
 
     private static Mesh loadMesh(String family, String part) {
+        // The original, unmodified OBJ from "armor MODEL".
         ResourceLocation location = new ResourceLocation(StalkerArmorMod.MODID,
-                "geo/armor/" + family + "/" + part + ".obj");
+                "geo/original/arm_" + family + "_" + part + ".obj");
         Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(location);
         if (resource.isEmpty()) {
-            LOGGER.error("[STALKER Armor] Missing armor geometry: {} — the armor piece will be invisible!", location);
+            LOGGER.error("[STALKER Armor] Missing armor model {}: {} — this armor piece will be invisible!",
+                    family + "/" + part, location);
             return null;
         }
 
         List<float[]> positions = new ArrayList<>();
         List<float[]> uvs = new ArrayList<>();
         List<float[]> normals = new ArrayList<>();
-        List<int[]> faces = new ArrayList<>();
+        List<int[]> faces = new ArrayList<>();   // each entry: {vertexIdx, texIdx, normalIdx} (1-based)
 
         try (InputStream stream = resource.get().open()) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
@@ -139,9 +159,53 @@ public final class StalkerArmorModels {
                 }
             }
         } catch (IOException | NumberFormatException e) {
-            throw new IllegalStateException("Failed to parse armor geometry " + location, e);
+            throw new IllegalStateException("Failed to parse armor model " + location, e);
         }
 
+        if (positions.isEmpty() || faces.isEmpty()) {
+            LOGGER.error("[STALKER Armor] Armor model {} has no geometry!", location);
+            return null;
+        }
+
+        PartTransform tr = PART_TRANSFORMS.get(part);
+
+        // Blender rig space -> MC model space
+        for (float[] p : positions) {
+            p[0] = 4.0F * p[0] + tr.tx();
+            p[1] = -4.0F * p[1] + tr.ty();
+            p[2] = -4.0F * p[2] + tr.tz();
+        }
+
+        // Inflate about the bounding box center so the armor sits off the skin.
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+        for (float[] p : positions) {
+            minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+            minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+            minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
+        }
+        float cx = (minX + maxX) / 2.0F, cy = (minY + maxY) / 2.0F, cz = (minZ + maxZ) / 2.0F;
+        float sx = Math.max(maxX - minX, 1.0E-6F), sy = Math.max(maxY - minY, 1.0E-6F), sz = Math.max(maxZ - minZ, 1.0E-6F);
+        float kx = (sx + 2.0F * tr.inflate()) / sx;
+        float ky = (sy + 2.0F * tr.inflate()) / sy;
+        float kz = (sz + 2.0F * tr.inflate()) / sz;
+        for (float[] p : positions) {
+            p[0] = cx + (p[0] - cx) * kx;
+            p[1] = cy + (p[1] - cy) * ky;
+            p[2] = cz + (p[2] - cz) * kz;
+        }
+
+        // Normals: (nx, -ny, -nz), renormalized.
+        for (float[] n : normals) {
+            n[1] = -n[1];
+            n[2] = -n[2];
+            float len = (float) Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len > 1.0E-6F) {
+                n[0] /= len; n[1] /= len; n[2] /= len;
+            }
+        }
+
+        // Expand to corner-parallel arrays.
         int n = faces.size();
         float[] x = new float[n], y = new float[n], z = new float[n];
         float[] u = new float[n], v = new float[n];
