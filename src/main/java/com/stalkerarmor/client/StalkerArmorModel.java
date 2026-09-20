@@ -20,11 +20,11 @@ import net.minecraft.world.entity.LivingEntity;
  * do not matter here.
  */
 public class StalkerArmorModel extends HumanoidModel<LivingEntity> {
-    private final StalkerArmorModels.Mesh head;
-    private final StalkerArmorModels.Mesh chest;
-    private final StalkerArmorModels.Mesh arm;
-    private final StalkerArmorModels.Mesh leg;
-    private final StalkerArmorModels.Mesh boot;
+    private final StalkerArmorModels.Mesh headMesh;
+    private final StalkerArmorModels.Mesh chestMesh;
+    private final StalkerArmorModels.Mesh armMesh;
+    private final StalkerArmorModels.Mesh legMesh;
+    private final StalkerArmorModels.Mesh bootMesh;
 
     private final boolean drawHead;
     private final boolean drawChest;
@@ -34,11 +34,11 @@ public class StalkerArmorModel extends HumanoidModel<LivingEntity> {
 
     public StalkerArmorModel(ModelPart root, StalkerArmorModels.FamilyMeshes family, EquipmentSlot slot) {
         super(root);
-        this.head = family.head();
-        this.chest = family.chest();
-        this.arm = family.arm();
-        this.leg = family.leg();
-        this.boot = family.boot();
+        this.headMesh = family.head();
+        this.chestMesh = family.chest();
+        this.armMesh = family.arm();
+        this.legMesh = family.leg();
+        this.bootMesh = family.boot();
         this.drawHead = slot == EquipmentSlot.HEAD;
         this.drawChest = slot == EquipmentSlot.CHEST;
         this.drawArms = slot == EquipmentSlot.CHEST;
@@ -56,23 +56,23 @@ public class StalkerArmorModel extends HumanoidModel<LivingEntity> {
             poseStack.translate(0.0F, 0.75F, 0.0F);
             poseStack.scale(0.5F, 0.5F, 0.5F);
         }
-        if (drawHead && head != null) {
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.head, this.head, false);
+        if (drawHead && headMesh != null) {
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.head, headMesh, false);
         }
-        if (drawChest && chest != null) {
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.body, chest, false);
+        if (drawChest && chestMesh != null) {
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.body, chestMesh, false);
         }
-        if (drawArms && arm != null) {
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftArm, arm, false);
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightArm, arm, true);
+        if (drawArms && armMesh != null) {
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftArm, armMesh, false);
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightArm, armMesh, true);
         }
-        if (drawLegs && leg != null) {
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftLeg, leg, false);
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightLeg, leg, true);
+        if (drawLegs && legMesh != null) {
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftLeg, legMesh, false);
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightLeg, legMesh, true);
         }
-        if (drawBoots && boot != null) {
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftLeg, boot, false);
-            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightLeg, boot, true);
+        if (drawBoots && bootMesh != null) {
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.leftLeg, bootMesh, false);
+            draw(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha, this.rightLeg, bootMesh, true);
         }
         if (baby) {
             poseStack.popPose();
