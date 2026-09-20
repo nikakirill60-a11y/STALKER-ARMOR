@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "stalkerarmor:item/heavy_merc_2_leggings"
+  }
+}

@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="stalkerarmor"
+version="${version}"
+displayName="STALKER Armor"
+authors="nikakirill60"
+logoFile="stalkerarmor_logo.png"
+logoBlur=false
+description='''S.T.A.L.K.E.R. armor sets for Minecraft 1.20.1 (Forge): Berill-5M, Bulat, SKAT heavy armor, SEVA, Zarya, scientific suits, jumpsuits, jackets, mantles and exoskeletons — with custom 3D models.'''
+
+[[dependencies.stalkerarmor]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.stalkerarmor]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
