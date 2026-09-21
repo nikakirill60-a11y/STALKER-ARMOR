@@ -76,6 +76,28 @@ public final class StalkerArmorModels {
      */
     private static final float NORMAL_OFFSET = 0.25F;
 
+    /** Body hitboxes in mannequin units — what the player skin actually renders as. */
+    private static final Map<String, float[]> BODY_BOXES = Map.of(
+            "head", new float[]{-1.0F, 1.0F, 6.0F, 8.0F, -1.0F, 1.0F},
+            "chest", new float[]{-1.0F, 1.0F, 3.0F, 6.0F, -0.5F, 0.5F},
+            "armL", new float[]{0.75F, 1.75F, 3.0F, 6.0F, -0.5F, 0.5F},
+            "armR", new float[]{-1.75F, -0.75F, 3.0F, 6.0F, -0.5F, 0.5F},
+            "legL", new float[]{0.0F, 1.0F, 0.0F, 3.0F, -0.5F, 0.5F},
+            "legR", new float[]{-1.0F, 0.0F, 0.0F, 3.0F, -0.5F, 0.5F},
+            "armX", new float[]{0.75F, 1.75F, 3.0F, 6.0F, -0.5F, 0.5F},
+            "legX", new float[]{0.0F, 1.0F, 0.0F, 3.0F, -0.5F, 0.5F});
+
+    /**
+     * The armor cloth must float at least this far off the body hitbox (mannequin
+     * units). Where the author's mesh sits closer — or inside the body — the skin
+     * pokes through the fabric and looks like holes in the armor. 0.15 units = 0.6 px,
+     * safely above the skin overlay layer (+0.25 px).
+     */
+    private static final float MIN_CLEARANCE = 0.15F;
+
+    /** Never push a single vertex further than this (keeps the author's silhouette). */
+    private static final float MAX_PUSH = 0.90F;
+
     /** Bone positions in mannequin space (must match steve.obj). */
     private static final Map<String, float[]> MANNEQUIN_BONES = Map.of(
             "head", new float[]{0.0F, 7.0F, 0.0F},
@@ -203,18 +225,20 @@ public final class StalkerArmorModels {
         PartTransform tr = PART_TRANSFORMS.get(part);
         float[] bonePos = MANNEQUIN_BONES.get(bone);
 
+        // Push the cloth off the player's body FIRST (mannequin space): vertices
+        // closer to the body hitbox than MIN_CLEARANCE — or inside it — let the
+        // skin poke through the fabric, which looks like holes in the armor.
+        float[][] src = pushOffBody(positions, faces, group);
+
         // Convert all positions once (mannequin -> pivot-relative).
-        float[][] pos = new float[positions.size()][];
-        for (int i = 0; i < positions.size(); i++) {
-            float[] p = positions.get(i);
+        float[][] pos = new float[src.length][];
+        for (int i = 0; i < src.length; i++) {
+            float[] p = src[i];
             pos[i] = new float[]{
                     4.0F * (p[0] - bonePos[0]) + tr.tx(),
                     -4.0F * (p[1] - bonePos[1]) + tr.ty(),
                     -4.0F * (p[2] - bonePos[2]) + tr.tz()};
         }
-        // Inflate about the group bbox was REMOVED: it tore seams between parts
-        // open (hood vs collar) and drove sleeves through the torso. The small
-        // per-vertex normal offset below keeps the armor off the skin instead.
 
         // Convert normals (only used when the corner references one).
         float[][] nrm = new float[normals.size()][];
@@ -283,9 +307,95 @@ public final class StalkerArmorModels {
         return new Mesh(x, y, z, u, v, nx, ny, nz);
     }
 
+    /**
+     * Returns a copy of {@code positions} in which every vertex used by {@code faces}
+     * is pushed radially away from the body-part hitbox center until it clears the
+     * box by {@link #MIN_CLEARANCE} (or reaches {@link #MAX_PUSH}). Only offending
+     * vertices move, and each moves by its own amount — seams between parts and the
+     * author's silhouette survive. This is what keeps the player's skin from poking
+     * through tight spots of the cloth (the "holes" bug).
+     */
+    private static float[][] pushOffBody(List<float[]> positions, List<int[]> faces, String group) {
+        float[][] src = new float[positions.size()][];
+        for (int i = 0; i < positions.size(); i++) {
+            src[i] = positions.get(i).clone();
+        }
+        float[] box = BODY_BOXES.get(group);
+        if (box == null) {
+            return src;
+        }
+        boolean[] used = new boolean[src.length];
+        for (int[] c : faces) {
+            int i = Math.max(0, c[0] - 1);
+            if (i < src.length) {
+                used[i] = true;
+            }
+        }
+        float cx = (box[0] + box[1]) / 2.0F, cy = (box[2] + box[3]) / 2.0F, cz = (box[4] + box[5]) / 2.0F;
+        float[] pushed = new float[src.length];
+        for (int iter = 0; iter < 8; iter++) {
+            int moved = 0;
+            for (int i = 0; i < src.length; i++) {
+                if (!used[i]) {
+                    continue;
+                }
+                float c = boxClearance(src[i], box);
+                if (c >= MIN_CLEARANCE) {
+                    continue;
+                }
+                float dx = src[i][0] - cx, dy = src[i][1] - cy, dz = src[i][2] - cz;
+                float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 1.0E-4F) {
+                    dx = 0.0F;
+                    dy = 1.0F;
+                    dz = 0.0F;
+                    len = 1.0F;
+                }
+                float step = Math.min(MIN_CLEARANCE - c + 0.01F, MAX_PUSH - pushed[i]);
+                if (step <= 0.0F) {
+                    continue;
+                }
+                src[i][0] += dx / len * step;
+                src[i][1] += dy / len * step;
+                src[i][2] += dz / len * step;
+                pushed[i] += step;
+                moved++;
+            }
+            if (moved == 0) {
+                break;
+            }
+        }
+        int count = 0;
+        float max = 0.0F;
+        for (int i = 0; i < src.length; i++) {
+            if (pushed[i] > 0.001F) {
+                count++;
+                max = Math.max(max, pushed[i]);
+            }
+        }
+        if (count > 0) {
+            LOGGER.info("[STALKER Armor] {}: pushed {} vertices off the body (max {} mannequin units) "
+                    + "— fixes skin showing through the cloth", group, count, max);
+        }
+        return src;
+    }
+
+    /** Signed distance from p to an axis-aligned box: positive outside, negative inside. */
+    private static float boxClearance(float[] p, float[] box) {
+        float dx = Math.max(box[0] - p[0], Math.max(0.0F, p[0] - box[1]));
+        float dy = Math.max(box[2] - p[1], Math.max(0.0F, p[1] - box[3]));
+        float dz = Math.max(box[4] - p[2], Math.max(0.0F, p[2] - box[5]));
+        if (dx + dy + dz > 0.0F) {
+            return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+        float ix = Math.min(p[0] - box[0], box[1] - p[0]);
+        float iy = Math.min(p[1] - box[2], box[3] - p[1]);
+        float iz = Math.min(p[2] - box[4], box[5] - p[2]);
+        return -Math.min(ix, Math.min(iy, iz));
+    }
+
     /** Maps a user's object name to a canonical group. */
-    private static String canonicalGroup(String raw) {
-        String key = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
+    private static String canonicalGroup(String raw) {        String key = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
         switch (key) {
             case "head": case "helmet": case "headwear": case "hat": case "cap": case "mask":
                 return "head";
