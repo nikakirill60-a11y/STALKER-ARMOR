@@ -248,7 +248,9 @@ public final class StalkerArmorModels {
                     -4.0F * (p[1] - bonePos[1]) + tr.ty(),
                     -4.0F * (p[2] - bonePos[2]) + tr.tz()};
         }
-        inflate(pos, tr.inflate());
+        // Inflate about THIS GROUP's bounding box (only vertices the group actually uses),
+        // not the whole file's bbox — otherwise parts drift away from their bones.
+        inflate(pos, tr.inflate(), faces);
 
         // Convert normals (only used when the corner references one).
         float[][] nrm = new float[normals.size()][];
@@ -431,22 +433,50 @@ public final class StalkerArmorModels {
 
     /** Inflates every axis of the mesh about its bounding box center (anti z-fighting). */
     private static void inflate(float[][] pos, float amount) {
+        inflate(pos, amount, null);
+    }
+
+    /**
+     * Inflates about the bounding box of the vertices referenced by {@code faces}
+     * (or all of {@code pos} when faces is null). Only the referenced vertices move.
+     */
+    private static void inflate(float[][] pos, float amount, List<int[]> faces) {
         if (pos.length == 0 || amount == 0.0F) {
             return;
         }
+        boolean[] used = new boolean[pos.length];
+        if (faces != null) {
+            for (int[] c : faces) {
+                int i = Math.max(0, c[0] - 1);
+                if (i < pos.length) {
+                    used[i] = true;
+                }
+            }
+        } else {
+            java.util.Arrays.fill(used, true);
+        }
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        for (float[] p : pos) {
+        int touched = 0;
+        for (int i = 0; i < pos.length; i++) {
+            if (!used[i]) continue;
+            float[] p = pos[i];
             minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
             minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
             minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
+            touched++;
+        }
+        if (touched == 0) {
+            return;
         }
         float cx = (minX + maxX) / 2.0F, cy = (minY + maxY) / 2.0F, cz = (minZ + maxZ) / 2.0F;
         float sx = Math.max(maxX - minX, 1.0E-6F), sy = Math.max(maxY - minY, 1.0E-6F), sz = Math.max(maxZ - minZ, 1.0E-6F);
         float kx = (sx + 2.0F * amount) / sx;
         float ky = (sy + 2.0F * amount) / sy;
         float kz = (sz + 2.0F * amount) / sz;
-        for (float[] p : pos) {
+        for (int i = 0; i < pos.length; i++) {
+            if (!used[i]) continue;
+            float[] p = pos[i];
             p[0] = cx + (p[0] - cx) * kx;
             p[1] = cy + (p[1] - cy) * ky;
             p[2] = cz + (p[2] - cz) * kz;
