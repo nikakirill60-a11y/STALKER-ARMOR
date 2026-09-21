@@ -93,6 +93,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.2.0 >/dev/null 2>&1 || gh release create v1.2.0 --title "STALKER Armor 1.2.0 — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "NEW ARMOR: the author's own jacket model (modeled over steve.obj) in one slot, 7 faction texture variants with custom icons. All old armor removed."
-          gh release upload v1.2.0 dist/stalkerarmor-1.20.1.jar steve.obj steve.mtl --clobber --repo "$GITHUB_REPOSITORY"
-          gh release view v1.2.0 --json assets --jq '.assets[].name'
+          MOD_VERSION=$(grep '^mod_version' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          echo "Releasing version: $MOD_VERSION"
+          gh release view "v$MOD_VERSION" >/dev/null 2>&1 || gh release create "v$MOD_VERSION" --title "STALKER Armor $MOD_VERSION — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "Full-body jacket armor: the author's own OBJ model in one chest slot, 7 faction texture variants with custom icons and leather recipes. v1.2.1: fixed holes/flicker (removed per-part inflate, armor now floats 0.25px along normals)."
+          gh release upload "v$MOD_VERSION" dist/stalkerarmor-1.20.1.jar steve.obj steve.mtl --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "v$MOD_VERSION" --json assets --jq '.assets[].name'
