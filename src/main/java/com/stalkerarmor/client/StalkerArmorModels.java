@@ -90,8 +90,23 @@ public final class StalkerArmorModels {
     private static final Map<String, FamilyMeshes> FAMILIES = new HashMap<>();
     private static final Map<String, HumanoidModel<?>> MODELS = new HashMap<>();
     private static final Map<String, HumanoidModel<?>> FULL_MODELS = new HashMap<>();
+    private static final java.util.Set<String> TEXTURE_DIAGNOSTICS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private StalkerArmorModels() {
+    }
+
+    /** One-time diagnostic: does the armor texture resolve in the resource manager? */
+    public static void logTextureOnce(String key, String textureFile) {
+        if (TEXTURE_DIAGNOSTICS.add(key + "/" + textureFile)) {
+            ResourceLocation tex = new ResourceLocation(StalkerArmorMod.MODID, "textures/armor/" + textureFile);
+            boolean present = Minecraft.getInstance().getResourceManager().getResource(tex).isPresent();
+            if (present) {
+                LOGGER.info("[STALKER Armor] OK: texture {} found", tex);
+            } else {
+                LOGGER.error("[STALKER Armor] PROBLEM: texture {} NOT FOUND in the mod resources! "
+                        + "The armor will render magenta/black. Report this line please.", tex);
+            }
+        }
     }
 
     // ------------------------------------------------------------ per-piece --

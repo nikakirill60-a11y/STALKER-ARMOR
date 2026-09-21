@@ -276,7 +276,27 @@ def gen_full_items():
         fh.write("\n".join(lines))
     print("full items generated:", len(FULL_SETS))
 
+def gen_fallback_layer_textures():
+    """Vanilla-default armor texture paths (belt & suspenders): if the Forge
+    getArmorTexture hook ever fails, the layer falls back to
+    textures/models/armor/<material>_layer_1/2.png — make sure those exist."""
+    src_dir = os.path.join(ga.ASSETS, "textures", "armor")
+    dst_dir = os.path.join(ga.ASSETS, "textures", "models", "armor")
+    os.makedirs(dst_dir, exist_ok=True)
+    family_tex = {sid.split("_", 1)[1] if False else f: t for f, t in {
+        "jacket": "arm_jacket.png", "cape": "arm_cape.png",
+        "kombez": "arm_merc_kombez_1.png", "scientist": "arm_scientist_1.png",
+        "seva": "arm_seva_merc.png", "zarya": "arm_zarya_stalker.png",
+        "berill": "arm_berill_military.png", "bulat": "arm_bulat_military.png",
+        "heavy": "arm_heavy_merc_1.png", "exo": "arm_heavy_merc_1.png",
+    }.items() if f in ga.TIERS}
+    for fam, tex in family_tex.items():
+        for layer in ("_layer_1", "_layer_2"):
+            shutil.copyfile(os.path.join(src_dir, tex), os.path.join(dst_dir, fam + layer + ".png"))
+    print("fallback layer textures:", len(family_tex) * 2)
+
 if __name__ == "__main__":
     gen_steve()
     gen_full_set_obj()
     gen_full_items()
+    gen_fallback_layer_textures()

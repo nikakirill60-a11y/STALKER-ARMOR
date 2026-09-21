@@ -36,6 +36,7 @@ public class StalkerFullArmorItem extends ArmorItem {
             @Override
             public HumanoidModel<?> getHumanoidArmorModel(LivingEntity livingEntity, ItemStack itemStack,
                                                            EquipmentSlot equipmentSlot, HumanoidModel<?> original) {
+                StalkerArmorModels.logTextureOnce("full", set.texture());
                 return StalkerArmorModels.getFullModel(set.id());
             }
         });
