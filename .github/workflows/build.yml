@@ -32,16 +32,20 @@ jobs:
       - name: Publish build log (on failure)
         if: failure()
         run: |
+          # surface compiler errors as annotations (readable via the GitHub API)
+          grep -E "error:|error |FAILURE|What went wrong" build.log | head -15 | while IFS= read -r l; do
+            echo "::error::${l}"
+          done || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p debug
-          tail -c 3000000 build.log > debug/build.log
-          git add debug
+          tail -c 3000000 build.log > debug/build.log || true
+          git add debug || true
           if git diff --cached --quiet; then
             echo "no log changes"
           else
-            git commit -m "CI: build failure log [skip ci]"
-            git push
+            git commit -m "CI: build failure log [skip ci]" || true
+            git push || (git pull --rebase && git push) || true
           fi
           exit 1
 
