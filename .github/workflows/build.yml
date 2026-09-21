@@ -89,6 +89,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.1.1 >/dev/null 2>&1 || gh release create v1.1.1 --title "STALKER Armor 1.1.1 — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "Fixes black-pink (missing texture) armor: vanilla fallback texture paths + texture diagnostics in the log."
-          gh release upload v1.1.1 dist/stalkerarmor-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY"
-          gh release view v1.1.1 --json assets --jq '.assets[].name'
+          gh release view v1.1.2 >/dev/null 2>&1 || gh release create v1.1.2 --title "STALKER Armor 1.1.2 — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "CRITICAL FIX: the jar was missing pack.mcmeta, so ALL mod resources (models, textures, icons) were rejected — armor rendered as black-pink vanilla cubes. Everything loads now."
+          gh release upload v1.1.2 dist/stalkerarmor-1.20.1.jar --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view v1.1.2 --json assets --jq '.assets[].name'
