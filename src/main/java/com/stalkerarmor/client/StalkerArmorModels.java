@@ -2,7 +2,7 @@ package com.stalkerarmor.client;
 
 import com.mojang.logging.LogUtils;
 import com.stalkerarmor.StalkerArmorMod;
-import com.stalkerarmor.StalkerArmorSet;
+import com.stalkerarmor.StalkerFullSet;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,19 +22,13 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.world.entity.EquipmentSlot;
 import org.slf4j.Logger;
 
 /**
- * Geometry loading for the STALKER armor mod.
- *
- * Two formats:
- *  1) Per-piece: the ORIGINAL "armor MODEL" OBJ files (bone-local space), used by
- *     the per-slot armor items. Converted to Minecraft model space at runtime.
- *  2) Full-body: ONE OBJ per set (assets/stalkerarmor/geo/sets/&lt;id&gt;.obj) in the
- *     "mannequin" space of steve.obj, split into objects: head, chest, armL, armR,
- *     legL, legR (or arm / leg for mirrored pairs). Equipping the item in the
- *     chest slot renders the whole suit.
+ * Loads full-body armor: ONE OBJ per model (assets/stalkerarmor/geo/sets/&lt;model&gt;.obj)
+ * in the "mannequin" space of steve.obj, split into objects: head, chest, armL, armR,
+ * legL, legR (or arm / leg for mirrored pairs). Equipping the item in the chest
+ * slot renders the whole suit; every part follows its body part's animation.
  *
  * Mannequin space: 1 unit = 4 MC pixels, Y up, -Z = front, feet at y=0.
  */
@@ -59,10 +53,6 @@ public final class StalkerArmorModels {
         }
     }
 
-    /** Per-piece geometry of one model family; null part = the family has no such piece. */
-    public record FamilyMeshes(Mesh head, Mesh chest, Mesh arm, Mesh leg, Mesh boot) {
-    }
-
     /** Full-body geometry; null = group absent from the file. */
     public record FullMeshes(Mesh head, Mesh chest, Mesh armL, Mesh armR,
                              Mesh legL, Mesh legR, Mesh armGeneric, Mesh legGeneric) {
@@ -76,10 +66,9 @@ public final class StalkerArmorModels {
             "head", new PartTransform(0.0F, -4.0F, 0.0F, 0.75F),
             "chest", new PartTransform(0.0F, 4.6F, 0.0F, 0.35F),
             "arm", new PartTransform(0.0F, 4.0F, 0.0F, 0.30F),
-            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F),
-            "boot", new PartTransform(0.0F, 9.1F, -1.5F, 0.35F));
+            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F));
 
-    /** Bone positions in mannequin space (must match tools/gen_full_sets.py BONES). */
+    /** Bone positions in mannequin space (must match steve.obj). */
     private static final Map<String, float[]> MANNEQUIN_BONES = Map.of(
             "head", new float[]{0.0F, 7.0F, 0.0F},
             "chest", new float[]{0.0F, 4.85F, 0.0F},
@@ -88,8 +77,7 @@ public final class StalkerArmorModels {
             "legL", new float[]{0.475F, 1.5F, 0.0F},
             "legR", new float[]{-0.475F, 1.5F, 0.0F});
 
-    private static final Map<String, FamilyMeshes> FAMILIES = new HashMap<>();
-    private static final Map<String, HumanoidModel<?>> MODELS = new HashMap<>();
+    private static final Map<String, FullMeshes> MODEL_CACHE = new HashMap<>();
     private static final Map<String, HumanoidModel<?>> FULL_MODELS = new HashMap<>();
     private static final java.util.Set<String> TEXTURE_DIAGNOSTICS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -110,42 +98,10 @@ public final class StalkerArmorModels {
         }
     }
 
-    // ------------------------------------------------------------ per-piece --
-
-    public static HumanoidModel<?> getModel(StalkerArmorSet set, EquipmentSlot slot) {
-        return MODELS.computeIfAbsent(set.id() + "/" + slot, key -> {
-            FamilyMeshes family = FAMILIES.computeIfAbsent(set.family(), StalkerArmorModels::loadFamily);
-            return new StalkerArmorModel(buildRoot(), family, slot);
-        });
-    }
-
-    private static FamilyMeshes loadFamily(String family) {
-        return new FamilyMeshes(
-                loadPiece(family, "head"),
-                loadPiece(family, "chest"),
-                loadPiece(family, "arm"),
-                loadPiece(family, "leg"),
-                loadPiece(family, "boot"));
-    }
-
-    /** Loads an original bone-local OBJ and converts it to pivot-relative model space. */
-    private static Mesh loadPiece(String family, String part) {
-        ResourceLocation location = new ResourceLocation(StalkerArmorMod.MODID,
-                "geo/original/arm_" + family + "_" + part + ".obj");
-        PartTransform tr = PART_TRANSFORMS.get(part);
-        if (tr == null) {
-            LOGGER.error("[STALKER Armor] No part transform registered for '{}' — please report this!", part);
-            return null;
-        }
-        return loadObj(location, tr);
-    }
-
-    // ----------------------------------------------------------- full suits --
-
-    public static HumanoidModel<?> getFullModel(String setId) {
-        return FULL_MODELS.computeIfAbsent(setId, id -> {
+    public static HumanoidModel<?> getFullModel(StalkerFullSet set) {
+        return FULL_MODELS.computeIfAbsent(set.id(), id -> {
             try {
-                FullMeshes full = loadFullObj(id);
+                FullMeshes full = loadFullObj(set.model());
                 return new StalkerArmorModel(buildRoot(), full);
             } catch (Exception e) {
                 LOGGER.error("[STALKER Armor] Failed to load full-body armor model {} — using vanilla armor shape. "
@@ -156,13 +112,13 @@ public final class StalkerArmorModels {
         });
     }
 
-    private static FullMeshes loadFullObj(String setId) {
-        ResourceLocation location = new ResourceLocation(StalkerArmorMod.MODID, "geo/sets/" + setId + ".obj");
+    private static FullMeshes loadFullObj(String modelFile) {
+        ResourceLocation location = new ResourceLocation(StalkerArmorMod.MODID, "geo/sets/" + modelFile + ".obj");
         Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(location);
         if (resource.isEmpty()) {
             LOGGER.error("[STALKER Armor] Missing full-body armor model {} — falling back to vanilla armor shape. "
                     + "Put your OBJ at assets/stalkerarmor/geo/sets/{}.obj (see steve.obj for the mannequin).",
-                    location, setId);
+                    location, modelFile);
             return new FullMeshes(null, null, null, null, null, null, null, null);
         }
 
@@ -217,7 +173,7 @@ public final class StalkerArmorModels {
             return new FullMeshes(null, null, null, null, null, null, null, null);
         }
 
-        LOGGER.info("[STALKER Armor] Loaded full-body armor {} (groups: {})", setId, groups.keySet());
+        LOGGER.info("[STALKER Armor] Loaded full-body armor {} (groups: {})", modelFile, groups.keySet());
         return new FullMeshes(
                 buildGroup(groups, positions, uvs, normals, "head", "head", "head"),
                 buildGroup(groups, positions, uvs, normals, "chest", "chest", "chest"),
@@ -322,113 +278,6 @@ public final class StalkerArmorModels {
                         + "Use objects named head, chest, armL, armR, legL, legR (or arm / leg).", raw);
                 return "chest";
         }
-    }
-
-    // -------------------------------------------------------------- shared --
-
-    /**
-     * Loads an OBJ (bone-local space for pieces) and converts it to pivot-relative
-     * model space. When {@code bone} is null the file is bone-local (per-piece format);
-     * otherwise it is in mannequin space and offset by the bone first.
-     */
-    private static Mesh loadObj(ResourceLocation location, PartTransform tr) {
-        Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(location);
-        if (resource.isEmpty()) {
-            LOGGER.error("[STALKER Armor] Missing armor model {} — this piece will use the vanilla armor shape!", location);
-            return null;
-        }
-
-        List<float[]> positions = new ArrayList<>();
-        List<float[]> uvs = new ArrayList<>();
-        List<float[]> normals = new ArrayList<>();
-        List<int[]> faces = new ArrayList<>();
-
-        try (InputStream stream = resource.get().open()) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.startsWith("v ")) {
-                    String[] t = line.split(" ");
-                    positions.add(new float[]{Float.parseFloat(t[1]), Float.parseFloat(t[2]), Float.parseFloat(t[3])});
-                } else if (line.startsWith("vt ")) {
-                    String[] t = line.split(" ");
-                    uvs.add(new float[]{Float.parseFloat(t[1]), Float.parseFloat(t[2])});
-                } else if (line.startsWith("vn ")) {
-                    String[] t = line.split(" ");
-                    normals.add(new float[]{Float.parseFloat(t[1]), Float.parseFloat(t[2]), Float.parseFloat(t[3])});
-                } else if (line.startsWith("f ")) {
-                    String[] tokens = line.split(" ");
-                    int[][] corners = new int[tokens.length - 1][];
-                    for (int i = 1; i < tokens.length; i++) {
-                        String[] idx = tokens[i].split("/");
-                        int vi = Integer.parseInt(idx[0]);
-                        int ti = idx.length > 1 && !idx[1].isEmpty() ? Integer.parseInt(idx[1]) : 0;
-                        int ni = idx.length > 2 && !idx[2].isEmpty() ? Integer.parseInt(idx[2]) : 0;
-                        corners[i - 1] = new int[]{vi, ti, ni};
-                    }
-                    for (int k = 1; k < corners.length - 1; k++) {
-                        faces.add(corners[0]);
-                        faces.add(corners[k]);
-                        faces.add(corners[k + 1]);
-                    }
-                }
-            }
-        } catch (IOException | NumberFormatException e) {
-            throw new IllegalStateException("Failed to parse armor model " + location, e);
-        }
-
-        if (positions.isEmpty() || faces.isEmpty()) {
-            LOGGER.error("[STALKER Armor] Armor model {} has no geometry!", location);
-            return null;
-        }
-
-        for (float[] p : positions) {
-            p[0] = 4.0F * p[0] + tr.tx();
-            p[1] = -4.0F * p[1] + tr.ty();
-            p[2] = -4.0F * p[2] + tr.tz();
-        }
-        float[][] pos = positions.toArray(new float[0][]);
-        inflate(pos, tr.inflate());
-
-        for (float[] nrm : normals) {
-            nrm[1] = -nrm[1];
-            nrm[2] = -nrm[2];
-            float len = (float) Math.sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
-            if (len > 1.0E-6F) { nrm[0] /= len; nrm[1] /= len; nrm[2] /= len; }
-        }
-
-        int n = faces.size();
-        float[] x = new float[n], y = new float[n], z = new float[n];
-        float[] u = new float[n], v = new float[n];
-        float[] nx = new float[n], ny = new float[n], nz = new float[n];
-        for (int i = 0; i < n; i++) {
-            int[] c = faces.get(i);
-            float[] p = pos[Math.max(0, c[0] - 1)];
-            x[i] = p[0]; y[i] = p[1]; z[i] = p[2];
-            if (c[1] > 0 && c[1] <= uvs.size()) {
-                float[] uv = uvs.get(c[1] - 1);
-                u[i] = uv[0]; v[i] = uv[1];
-            }
-            if (c[2] > 0 && c[2] <= normals.size()) {
-                float[] nn = normals.get(c[2] - 1);
-                nx[i] = nn[0]; ny[i] = nn[1]; nz[i] = nn[2];
-            }
-        }
-        for (int i = 0; i + 2 < n; i += 3) {
-            if (nx[i] == 0.0F && ny[i] == 0.0F && nz[i] == 0.0F) {
-                float ax = x[i + 1] - x[i], ay = y[i + 1] - y[i], az = z[i + 1] - z[i];
-                float bx = x[i + 2] - x[i], by = y[i + 2] - y[i], bz = z[i + 2] - z[i];
-                float cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
-                float len = (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
-                if (len > 1.0E-6F) { cx /= len; cy /= len; cz /= len; } else { cx = 0; cy = -1; cz = 0; }
-                for (int k = i; k < i + 3; k++) {
-                    if (nx[k] == 0.0F && ny[k] == 0.0F && nz[k] == 0.0F) {
-                        nx[k] = cx; ny[k] = cy; nz[k] = cz;
-                    }
-                }
-            }
-        }
-        return new Mesh(x, y, z, u, v, nx, ny, nz);
     }
 
     /** Inflates every axis of the mesh about its bounding box center (anti z-fighting). */

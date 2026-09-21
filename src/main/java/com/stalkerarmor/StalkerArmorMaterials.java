@@ -10,20 +10,10 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 
 /**
- * Gameplay tiers of the suits, roughly following S.T.A.L.K.E.R. progression:
- * leather jacket -> stalker jumpsuits -> Berill/Bulat -> SKAT / exoskeleton.
+ * Gameplay tiers of the suits. Add more entries here when you add heavier armor.
  */
 public enum StalkerArmorMaterials implements ArmorMaterial {
-    JACKET   (11, new int[]{1, 3, 2, 1}, 0.0F, 0.00F, 15, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER)),
-    CAPE     (12, new int[]{1, 3, 2, 1}, 0.0F, 0.00F, 15, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER)),
-    KOMBEZ   (18, new int[]{2, 5, 4, 2}, 0.0F, 0.00F, 12, SoundEvents.ARMOR_EQUIP_IRON,    () -> Ingredient.of(Items.IRON_INGOT)),
-    SCIENTIST(20, new int[]{2, 6, 5, 2}, 0.5F, 0.00F, 12, SoundEvents.ARMOR_EQUIP_IRON,    () -> Ingredient.of(Items.IRON_INGOT)),
-    SEVA     (20, new int[]{3, 6, 5, 2}, 1.0F, 0.00F, 12, SoundEvents.ARMOR_EQUIP_IRON,    () -> Ingredient.of(Items.IRON_INGOT)),
-    ZARYA    (21, new int[]{2, 6, 5, 2}, 1.0F, 0.00F, 12, SoundEvents.ARMOR_EQUIP_IRON,    () -> Ingredient.of(Items.IRON_INGOT)),
-    BERILL   (25, new int[]{3, 7, 5, 2}, 2.0F, 0.00F, 10, SoundEvents.ARMOR_EQUIP_IRON,    () -> Ingredient.of(Items.IRON_INGOT)),
-    BULAT    (33, new int[]{3, 8, 6, 3}, 2.0F, 0.05F, 10, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.IRON_INGOT)),
-    HEAVY    (33, new int[]{3, 8, 6, 3}, 2.5F, 0.10F, 10, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.IRON_INGOT)),
-    EXO      (37, new int[]{4, 8, 6, 3}, 3.0F, 0.15F, 10, SoundEvents.ARMOR_EQUIP_DIAMOND, () -> Ingredient.of(Items.DIAMOND));
+    JACKET(11, new int[]{1, 3, 2, 1}, 0.0F, 0.00F, 15, SoundEvents.ARMOR_EQUIP_LEATHER, () -> Ingredient.of(Items.LEATHER));
 
     /** Vanilla multiplier per ArmorItem.Type ordinal (HELMET, CHESTPLATE, LEGGINGS, BOOTS). */
     private static final int[] DURABILITY_PER_TYPE = {11, 16, 15, 13};

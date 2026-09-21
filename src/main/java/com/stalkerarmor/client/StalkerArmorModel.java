@@ -6,19 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
  * HumanoidModel that renders the custom STALKER armor meshes instead of cubes.
  *
- * Two modes:
- *  - per-piece (one armor piece per slot; right arm/leg/boot mirrored from the left mesh)
- *  - full-body (ONE OBJ covers the whole player; equipped in a single chest slot)
- *
- * Part poses (walk, crouch, head turn...) arrive from the vanilla player model via
- * {@code copyPropertiesTo}; triangles are drawn in pivot-relative model space
- * (1 unit = 1/16 block) after each part's transform, exactly like vanilla cubes.
+ * Full-body mode: ONE OBJ covers the whole player; equipped in a single chest
+ * slot. Part poses (walk, crouch, head turn...) arrive from the vanilla player
+ * model via {@code copyPropertiesTo}; triangles are drawn in pivot-relative
+ * model space (1 unit = 1/16 block) after each part's transform, exactly like
+ * vanilla cubes.
  *
  * If no custom geometry is available the model falls back to the vanilla armor
  * boxes so armor is never invisible.
@@ -30,34 +27,6 @@ public class StalkerArmorModel extends HumanoidModel<LivingEntity> {
 
     private final List<Entry> entries = new ArrayList<>();
     private final boolean vanillaFallback;
-
-    /** Per-piece mode: draws only the parts belonging to the given slot. */
-    public StalkerArmorModel(ModelPart root, StalkerArmorModels.FamilyMeshes family, EquipmentSlot slot) {
-        super(root);
-        boolean any = false;
-        if (slot == EquipmentSlot.HEAD && family.head() != null) {
-            entries.add(new Entry(this.head, family.head(), false)); any = true;
-        }
-        if (slot == EquipmentSlot.CHEST) {
-            if (family.chest() != null) { entries.add(new Entry(this.body, family.chest(), false)); any = true; }
-            if (family.arm() != null) {
-                entries.add(new Entry(this.leftArm, family.arm(), false));
-                entries.add(new Entry(this.rightArm, family.arm(), true));
-                any = true;
-            }
-        }
-        if (slot == EquipmentSlot.LEGS && family.leg() != null) {
-            entries.add(new Entry(this.leftLeg, family.leg(), false));
-            entries.add(new Entry(this.rightLeg, family.leg(), true));
-            any = true;
-        }
-        if (slot == EquipmentSlot.FEET && family.boot() != null) {
-            entries.add(new Entry(this.leftLeg, family.boot(), false));
-            entries.add(new Entry(this.rightLeg, family.boot(), true));
-            any = true;
-        }
-        this.vanillaFallback = !any;
-    }
 
     /** Full-body mode: one OBJ (objects head/chest/armL/armR/legL/legR) drawn on the whole player. */
     public StalkerArmorModel(ModelPart root, StalkerArmorModels.FullMeshes full) {
@@ -89,6 +58,7 @@ public class StalkerArmorModel extends HumanoidModel<LivingEntity> {
         }
         boolean baby = this.young;
         if (baby) {
+            // Keep feet on the ground while shrinking to baby size (vanilla armor scales for babies too).
             poseStack.pushPose();
             poseStack.translate(0.0F, 0.75F, 0.0F);
             poseStack.scale(0.5F, 0.5F, 0.5F);

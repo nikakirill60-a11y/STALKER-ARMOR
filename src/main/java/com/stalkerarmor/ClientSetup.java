@@ -17,30 +17,19 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            int fullOk = 0;
+            int ok = 0;
             for (StalkerFullSet set : StalkerFullSet.ALL) {
                 try {
-                    StalkerArmorModels.getFullModel(set.id());
-                    fullOk++;
-                } catch (Exception ignored) {
-                    // already logged inside
-                }
-            }
-            int pieceOk = 0;
-            for (StalkerArmorSet set : StalkerArmorSets.ALL) {
-                try {
-                    for (net.minecraft.world.entity.EquipmentSlot slot : net.minecraft.world.entity.EquipmentSlot.values()) {
-                        StalkerArmorModels.getModel(set, slot);
-                    }
-                    pieceOk++;
+                    StalkerArmorModels.getFullModel(set);
+                    ok++;
                 } catch (Exception ignored) {
                     // already logged inside
                 }
             }
             com.mojang.logging.LogUtils.getLogger().info(
-                    "[STALKER Armor] Model check at startup: {}/{} full-body suits and {}/{} piece sets loaded. "
+                    "[STALKER Armor] Model check at startup: {}/{} armor models loaded. "
                             + "If a number is lower than expected, search this log for '[STALKER Armor]' errors.",
-                    fullOk, StalkerFullSet.ALL.length, pieceOk, StalkerArmorSets.ALL.length);
+                    ok, StalkerFullSet.ALL.length);
         });
     }
 
