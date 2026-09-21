@@ -189,5 +189,15 @@
   "item.stalkerarmor.cape_leggings": "Штаны «Плащ сталкера»",
   "item.stalkerarmor.cape_black_helmet": "Шлем «Чёрный плащ»",
   "item.stalkerarmor.cape_black_chestplate": "Броня «Чёрный плащ»",
-  "item.stalkerarmor.cape_black_leggings": "Штаны «Чёрный плащ»"
+  "item.stalkerarmor.cape_black_leggings": "Штаны «Чёрный плащ»",
+  "item.stalkerarmor.full_berill": "Берилл-5М (полный комплект)",
+  "item.stalkerarmor.full_bulat": "Булат (полный комплект)",
+  "item.stalkerarmor.full_heavy": "Тяжёлая броня (полный комплект)",
+  "item.stalkerarmor.full_exo": "Экзоскелет (полный комплект)",
+  "item.stalkerarmor.full_jacket": "Куртка (полный комплект)",
+  "item.stalkerarmor.full_kombez": "Комбинезон (полный комплект)",
+  "item.stalkerarmor.full_scientist": "Научный костюм (полный комплект)",
+  "item.stalkerarmor.full_seva": "СЕВА (полный комплект)",
+  "item.stalkerarmor.full_zarya": "Заря (полный комплект)",
+  "item.stalkerarmor.full_cape": "Плащ сталкера (полный комплект)"
 }

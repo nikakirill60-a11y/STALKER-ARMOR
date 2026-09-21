@@ -189,5 +189,15 @@
   "item.stalkerarmor.cape_leggings": "Stalker Mantle Leggings",
   "item.stalkerarmor.cape_black_helmet": "Black Mantle Helmet",
   "item.stalkerarmor.cape_black_chestplate": "Black Mantle Chestplate",
-  "item.stalkerarmor.cape_black_leggings": "Black Mantle Leggings"
+  "item.stalkerarmor.cape_black_leggings": "Black Mantle Leggings",
+  "item.stalkerarmor.full_berill": "Berill-5M (full suit)",
+  "item.stalkerarmor.full_bulat": "Bulat (full suit)",
+  "item.stalkerarmor.full_heavy": "Heavy Armor (full suit)",
+  "item.stalkerarmor.full_exo": "Exoskeleton (full suit)",
+  "item.stalkerarmor.full_jacket": "Jacket (full suit)",
+  "item.stalkerarmor.full_kombez": "Jumpsuit (full suit)",
+  "item.stalkerarmor.full_scientist": "Scientific Suit (full suit)",
+  "item.stalkerarmor.full_seva": "SEVA (full suit)",
+  "item.stalkerarmor.full_zarya": "Zarya (full suit)",
+  "item.stalkerarmor.full_cape": "Stalker Mantle (full suit)"
 }
