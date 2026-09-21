@@ -58,15 +58,23 @@ public final class StalkerArmorModels {
                              Mesh legL, Mesh legR, Mesh armGeneric, Mesh legGeneric) {
     }
 
-    /** Per-body-part placement (pivot-relative MC units) and inflate amount. */
-    private record PartTransform(float tx, float ty, float tz, float inflate) {
+    /** Per-body-part placement (pivot-relative MC units). */
+    private record PartTransform(float tx, float ty, float tz) {
     }
 
     private static final Map<String, PartTransform> PART_TRANSFORMS = Map.of(
-            "head", new PartTransform(0.0F, -4.0F, 0.0F, 0.75F),
-            "chest", new PartTransform(0.0F, 4.6F, 0.0F, 0.35F),
-            "arm", new PartTransform(0.0F, 4.0F, 0.0F, 0.30F),
-            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F));
+            "head", new PartTransform(0.0F, -4.0F, 0.0F),
+            "chest", new PartTransform(0.0F, 4.6F, 0.0F),
+            "arm", new PartTransform(0.0F, 4.0F, 0.0F),
+            "leg", new PartTransform(0.0F, 6.0F, 0.0F));
+
+    /**
+     * Every vertex is pushed this far (MC model px) along its averaged vertex normal,
+     * so the armor floats just above the skin without z-fighting. Unlike the old
+     * per-part box inflate this cannot tear seams between parts open (hood vs
+     * collar) or drive sleeves through the torso / pant legs into each other.
+     */
+    private static final float NORMAL_OFFSET = 0.25F;
 
     /** Bone positions in mannequin space (must match steve.obj). */
     private static final Map<String, float[]> MANNEQUIN_BONES = Map.of(
@@ -204,9 +212,9 @@ public final class StalkerArmorModels {
                     -4.0F * (p[1] - bonePos[1]) + tr.ty(),
                     -4.0F * (p[2] - bonePos[2]) + tr.tz()};
         }
-        // Inflate about THIS GROUP's bounding box (only vertices the group actually uses),
-        // not the whole file's bbox — otherwise parts drift away from their bones.
-        inflate(pos, tr.inflate(), faces);
+        // Inflate about the group bbox was REMOVED: it tore seams between parts
+        // open (hood vs collar) and drove sleeves through the torso. The small
+        // per-vertex normal offset below keeps the armor off the skin instead.
 
         // Convert normals (only used when the corner references one).
         float[][] nrm = new float[normals.size()][];
@@ -250,6 +258,28 @@ public final class StalkerArmorModels {
                 }
             }
         }
+
+        // Push every vertex outward along its averaged normal (anti z-fighting with
+        // the skin). Per-vertex averaging keeps the surface watertight: all corners
+        // of a vertex move by the same vector, so no cracks open between faces.
+        if (NORMAL_OFFSET != 0.0F) {
+            Map<Integer, float[]> sums = new HashMap<>();
+            for (int i = 0; i < n; i++) {
+                float[] s = sums.computeIfAbsent(faces.get(i)[0], k -> new float[3]);
+                s[0] += nx[i];
+                s[1] += ny[i];
+                s[2] += nz[i];
+            }
+            for (int i = 0; i < n; i++) {
+                float[] s = sums.get(faces.get(i)[0]);
+                float len = (float) Math.sqrt(s[0] * s[0] + s[1] * s[1] + s[2] * s[2]);
+                if (len > 1.0E-6F) {
+                    x[i] += s[0] / len * NORMAL_OFFSET;
+                    y[i] += s[1] / len * NORMAL_OFFSET;
+                    z[i] += s[2] / len * NORMAL_OFFSET;
+                }
+            }
+        }
         return new Mesh(x, y, z, u, v, nx, ny, nz);
     }
 
@@ -277,58 +307,6 @@ public final class StalkerArmorModels {
                 LOGGER.warn("[STALKER Armor] Unknown object name '{}' in armor OBJ — attaching it to the body. "
                         + "Use objects named head, chest, armL, armR, legL, legR (or arm / leg).", raw);
                 return "chest";
-        }
-    }
-
-    /** Inflates every axis of the mesh about its bounding box center (anti z-fighting). */
-    private static void inflate(float[][] pos, float amount) {
-        inflate(pos, amount, null);
-    }
-
-    /**
-     * Inflates about the bounding box of the vertices referenced by {@code faces}
-     * (or all of {@code pos} when faces is null). Only the referenced vertices move.
-     */
-    private static void inflate(float[][] pos, float amount, List<int[]> faces) {
-        if (pos.length == 0 || amount == 0.0F) {
-            return;
-        }
-        boolean[] used = new boolean[pos.length];
-        if (faces != null) {
-            for (int[] c : faces) {
-                int i = Math.max(0, c[0] - 1);
-                if (i < pos.length) {
-                    used[i] = true;
-                }
-            }
-        } else {
-            java.util.Arrays.fill(used, true);
-        }
-        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        int touched = 0;
-        for (int i = 0; i < pos.length; i++) {
-            if (!used[i]) continue;
-            float[] p = pos[i];
-            minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-            minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
-            minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
-            touched++;
-        }
-        if (touched == 0) {
-            return;
-        }
-        float cx = (minX + maxX) / 2.0F, cy = (minY + maxY) / 2.0F, cz = (minZ + maxZ) / 2.0F;
-        float sx = Math.max(maxX - minX, 1.0E-6F), sy = Math.max(maxY - minY, 1.0E-6F), sz = Math.max(maxZ - minZ, 1.0E-6F);
-        float kx = (sx + 2.0F * amount) / sx;
-        float ky = (sy + 2.0F * amount) / sy;
-        float kz = (sz + 2.0F * amount) / sz;
-        for (int i = 0; i < pos.length; i++) {
-            if (!used[i]) continue;
-            float[] p = pos[i];
-            p[0] = cx + (p[0] - cx) * kx;
-            p[1] = cy + (p[1] - cy) * ky;
-            p[2] = cz + (p[2] - cz) * kz;
         }
     }
 
