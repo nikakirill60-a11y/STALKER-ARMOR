@@ -76,7 +76,8 @@ public final class StalkerArmorModels {
             "head", new PartTransform(0.0F, -4.0F, 0.0F, 0.75F),
             "chest", new PartTransform(0.0F, 4.6F, 0.0F, 0.35F),
             "arm", new PartTransform(0.0F, 4.0F, 0.0F, 0.30F),
-            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F));
+            "leg", new PartTransform(0.0F, 6.0F, 0.0F, 0.30F),
+            "boot", new PartTransform(0.0F, 9.1F, -1.5F, 0.35F));
 
     /** Bone positions in mannequin space (must match tools/gen_full_sets.py BONES). */
     private static final Map<String, float[]> MANNEQUIN_BONES = Map.of(
@@ -132,6 +133,10 @@ public final class StalkerArmorModels {
         ResourceLocation location = new ResourceLocation(StalkerArmorMod.MODID,
                 "geo/original/arm_" + family + "_" + part + ".obj");
         PartTransform tr = PART_TRANSFORMS.get(part);
+        if (tr == null) {
+            LOGGER.error("[STALKER Armor] No part transform registered for '{}' — please report this!", part);
+            return null;
+        }
         return loadObj(location, tr);
     }
 
@@ -139,8 +144,15 @@ public final class StalkerArmorModels {
 
     public static HumanoidModel<?> getFullModel(String setId) {
         return FULL_MODELS.computeIfAbsent(setId, id -> {
-            FullMeshes full = loadFullObj(id);
-            return new StalkerArmorModel(buildRoot(), full);
+            try {
+                FullMeshes full = loadFullObj(id);
+                return new StalkerArmorModel(buildRoot(), full);
+            } catch (Exception e) {
+                LOGGER.error("[STALKER Armor] Failed to load full-body armor model {} — using vanilla armor shape. "
+                        + "Please report this with your log!", id, e);
+                return new StalkerArmorModel(buildRoot(),
+                        new FullMeshes(null, null, null, null, null, null, null, null));
+            }
         });
     }
 
