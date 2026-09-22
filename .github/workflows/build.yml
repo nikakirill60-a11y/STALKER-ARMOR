@@ -1,0 +1,103 @@
+name: Build mod
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.1.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+
+      - name: Build
+        run: |
+          set -o pipefail
+          gradle build --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Publish build log (on failure)
+        if: failure()
+        run: |
+          # surface compiler errors as annotations (readable via the GitHub API)
+          grep -E "error:|error |FAILURE|What went wrong" build.log | head -15 | while IFS= read -r l; do
+            echo "::error::${l}"
+          done || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p debug
+          tail -c 3000000 build.log > debug/build.log || true
+          git add debug || true
+          if git diff --cached --quiet; then
+            echo "no log changes"
+          else
+            git commit -m "CI: build failure log [skip ci]" || true
+            git push || (git pull --rebase && git push) || true
+          fi
+          exit 1
+
+      - name: List outputs
+        if: success()
+        run: |
+          ls -la build/libs || true
+          ls -la build/reobfJar || true
+
+      - name: Upload artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stalkerarmor-jar
+          path: |
+            build/libs/*.jar
+            build/reobfJar/output.jar
+          if-no-files-found: error
+
+      - name: Commit built jar back to the branch
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          MOD_VERSION=$(grep '^mod_version' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          echo "Mod version: $MOD_VERSION"
+          mkdir -p dist
+          JAR=""
+          if [ -f build/reobfJar/output.jar ]; then
+            JAR=build/reobfJar/output.jar
+          else
+            JAR=$(ls build/libs/*.jar | grep -v -- -sources | head -1)
+          fi
+          echo "Publishing $JAR"
+          rm -f dist/stalkerarmor-*.jar
+          cp "$JAR" "dist/stalkerarmor-${MOD_VERSION}-1.20.1.jar"
+          git add dist
+          if git diff --cached --quiet; then
+            echo "No jar changes to commit"
+          else
+            git commit -m "CI: built mod jar [skip ci]"
+            git push
+          fi
+
+      - name: Attach jar to release (best effort)
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MOD_VERSION=$(grep '^mod_version' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          echo "Releasing version: $MOD_VERSION"
+          gh release view "v$MOD_VERSION" >/dev/null 2>&1 || gh release create "v$MOD_VERSION" --title "STALKER Armor $MOD_VERSION — Minecraft 1.20.1 (Forge)" --target "$GITHUB_SHA" --notes "Full-body jacket armor: the author's own OBJ model in one chest slot, 7 faction texture variants with custom icons and leather recipes. v1.2.3: fixed the 'holes' — the texture sheets had unpainted black background under parts of the UV layout (11% of the leg surface, 8% of the torso sampled pure black); the background is now filled with matching fabric color (the art itself is untouched)."
+          gh release upload "v$MOD_VERSION" "dist/stalkerarmor-${MOD_VERSION}-1.20.1.jar" steve.obj steve.mtl --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "v$MOD_VERSION" --json assets --jq '.assets[].name'
